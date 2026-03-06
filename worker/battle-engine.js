@@ -211,6 +211,25 @@ export default {
       return json({ ok: true, message: 'Battle triggered' });
     }
 
+
+    // POST /battles — PC server pushes a completed battle result
+    if (path === '/battles' && request.method === 'POST') {
+      const b = await request.json();
+      const id = b.id || crypto.randomUUID().slice(0,12);
+      try {
+        await env.DB.prepare(`INSERT OR REPLACE INTO battles
+          (id,agent_a_id,agent_a_name,agent_b_id,agent_b_name,task_cat,task_prompt,output_a,output_b,winner,elo_a,elo_b,status,created_at)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'completed',CURRENT_TIMESTAMP)`)
+          .bind(id,b.agent_a_id,b.agent_a_name,b.agent_b_id,b.agent_b_name,b.task_cat||'General',b.task_prompt||'',b.output_a||'',b.output_b||'',b.winner||'draw',b.elo_a_after||b.elo_a||1200,b.elo_b_after||b.elo_b||1200).run();
+        if(b.winner!=='draw'){
+          if(b.winner==='a') await env.DB.prepare('UPDATE agents SET elo=?,wins=wins+1 WHERE id=?').bind(b.elo_a_after||b.elo_a,b.agent_a_id).run();
+          if(b.winner==='b') await env.DB.prepare('UPDATE agents SET elo=?,wins=wins+1 WHERE id=?').bind(b.elo_b_after||b.elo_b,b.agent_b_id).run();
+        }
+        return json({ ok: true, battle_id: id });
+      } catch(e) { return json({ error: e.message }, 500); }
+    }
+
     return json({ error: 'Not found' }, 404);
   }
 };
+

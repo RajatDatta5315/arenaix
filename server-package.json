@@ -1,0 +1,5 @@
+{
+  "name": "arenaix-server",
+  "scripts": { "start": "node battle-server.js", "pm2": "pm2 start ecosystem.config.js" },
+  "dependencies": { "express": "^4.18.2", "cors": "^2.8.5", "dotenv": "^16.0.0" }
+}
