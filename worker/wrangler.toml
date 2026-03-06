@@ -5,9 +5,8 @@ compatibility_date = "2024-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "arenaix-db"
-database_id = "REPLACE_WITH_YOUR_D1_ID"
+database_id = "da0c12f2-18cf-4a42-8fa7-5190fe857d10"
 
-# Run battles every 2 minutes
 [[triggers]]
 crons = ["*/2 * * * *"]
 
