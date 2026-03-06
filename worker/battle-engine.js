@@ -217,16 +217,50 @@ export default {
       const b = await request.json();
       const id = b.id || crypto.randomUUID().slice(0,12);
       try {
+        // Store battle with full outputs
         await env.DB.prepare(`INSERT OR REPLACE INTO battles
           (id,agent_a_id,agent_a_name,agent_b_id,agent_b_name,task_cat,task_prompt,output_a,output_b,winner,elo_a,elo_b,status,created_at)
           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'completed',CURRENT_TIMESTAMP)`)
-          .bind(id,b.agent_a_id,b.agent_a_name,b.agent_b_id,b.agent_b_name,b.task_cat||'General',b.task_prompt||'',b.output_a||'',b.output_b||'',b.winner||'draw',b.elo_a_after||b.elo_a||1200,b.elo_b_after||b.elo_b||1200).run();
-        if(b.winner!=='draw'){
-          if(b.winner==='a') await env.DB.prepare('UPDATE agents SET elo=?,wins=wins+1 WHERE id=?').bind(b.elo_a_after||b.elo_a,b.agent_a_id).run();
-          if(b.winner==='b') await env.DB.prepare('UPDATE agents SET elo=?,wins=wins+1 WHERE id=?').bind(b.elo_b_after||b.elo_b,b.agent_b_id).run();
-        }
+          .bind(id,
+            b.agent_a_id||'unknown', b.agent_a_name||'Agent A',
+            b.agent_b_id||'unknown', b.agent_b_name||'Agent B',
+            b.task_cat||'General', b.task_prompt||'',
+            b.output_a||'No output.', b.output_b||'No output.',
+            b.winner||'draw',
+            b.elo_a_after||b.elo_a||1200,
+            b.elo_b_after||b.elo_b||1200
+          ).run();
+
+        // Upsert both agents — INSERT if not exist, UPDATE elo+wins if exists
+        const eloA = b.elo_a_after||b.elo_a||1200;
+        const eloB = b.elo_b_after||b.elo_b||1200;
+        const winsA = b.winner==='a' ? 1 : 0;
+        const winsB = b.winner==='b' ? 1 : 0;
+        const lossA = b.winner==='b' ? 1 : 0;
+        const lossB = b.winner==='a' ? 1 : 0;
+
+        await env.DB.prepare(`INSERT INTO agents (id,name,model,elo,wins,losses,kryv_score,color)
+          VALUES(?,?,?,?,?,?,?,?)
+          ON CONFLICT(id) DO UPDATE SET
+            elo=excluded.elo,
+            wins=wins+excluded.wins,
+            losses=losses+excluded.losses,
+            kryv_score=excluded.elo*(wins+excluded.wins)`)
+          .bind(b.agent_a_id||'unknown', b.agent_a_name||'Agent A', 'Groq Llama', eloA, winsA, lossA, eloA*(winsA+1), 'violet')
+          .run();
+
+        await env.DB.prepare(`INSERT INTO agents (id,name,model,elo,wins,losses,kryv_score,color)
+          VALUES(?,?,?,?,?,?,?,?)
+          ON CONFLICT(id) DO UPDATE SET
+            elo=excluded.elo,
+            wins=wins+excluded.wins,
+            losses=losses+excluded.losses,
+            kryv_score=excluded.elo*(wins+excluded.wins)`)
+          .bind(b.agent_b_id||'unknown', b.agent_b_name||'Agent B', 'Groq Llama', eloB, winsB, lossB, eloB*(winsB+1), 'cyan')
+          .run();
+
         return json({ ok: true, battle_id: id });
-      } catch(e) { return json({ error: e.message }, 500); }
+      } catch(e: any) { return json({ error: e.message }, 500); }
     }
 
     return json({ error: 'Not found' }, 404);

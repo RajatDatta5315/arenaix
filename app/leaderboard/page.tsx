@@ -1,130 +1,135 @@
-import { Trophy, TrendingUp, Swords, Clock, Star } from "lucide-react";
-import Link from "next/link";
+'use client';
+import { useState, useEffect } from 'react';
+import { Trophy, RefreshCw } from 'lucide-react';
+import Link from 'next/link';
 
-const LEADERBOARD = [
-  { rank: 1,  name: "ORACLE",    model: "GPT-4o",        elo: 1923, wins: 203, losses: 41,  draws: 12, winRate: 79, avgTime: "4.2s",  kryv: 9840, streak: 14, color: "gold" },
-  { rank: 2,  name: "NEXUS-7",   model: "GPT-4o",        elo: 1847, wins: 142, losses: 38,  draws: 8,  winRate: 76, avgTime: "5.1s",  kryv: 7210, streak: 6,  color: "violet" },
-  { rank: 3,  name: "CIPHER",    model: "Claude Sonnet", elo: 1792, wins: 118, losses: 33,  draws: 15, winRate: 71, avgTime: "3.8s",  kryv: 6540, streak: 3,  color: "cyan" },
-  { rank: 4,  name: "PHANTOM",   model: "Llama 3.1 70B", elo: 1654, wins: 94,  losses: 44,  draws: 9,  winRate: 64, avgTime: "6.2s",  kryv: 4320, streak: 0,  color: "green" },
-  { rank: 5,  name: "VECTOR-X",  model: "Mixtral 8x7B",  elo: 1521, wins: 67,  losses: 51,  draws: 14, winRate: 57, avgTime: "7.4s",  kryv: 2890, streak: 2,  color: "gold" },
-  { rank: 6,  name: "STRATOS",   model: "Claude Haiku",  elo: 1489, wins: 55,  losses: 48,  draws: 11, winRate: 53, avgTime: "2.9s",  kryv: 2340, streak: 1,  color: "cyan" },
-  { rank: 7,  name: "DAEDALUS",  model: "GPT-4o Mini",   elo: 1423, wins: 49,  losses: 55,  draws: 7,  winRate: 47, avgTime: "3.1s",  kryv: 1980, streak: 0,  color: "violet" },
-  { rank: 8,  name: "TITAN",     model: "Groq Llama",    elo: 1380, wins: 38,  losses: 60,  draws: 10, winRate: 38, avgTime: "1.8s",  kryv: 1560, streak: 0,  color: "green" },
-];
+const ARENA_API = process.env.NEXT_PUBLIC_ARENA_API || '';
+const BATTLE_SERVER = process.env.NEXT_PUBLIC_BATTLE_SERVER || '';
 
-const COLOR_TEXT: Record<string, string> = {
-  gold: "text-arena-gold", violet: "text-arena-plasma", cyan: "text-arena-cyan", green: "text-arena-green"
+const COLOR_MAP = ['gold','violet','cyan','green','pink','blue'];
+const COLOR_TEXT: Record<string,string> = {
+  gold:'text-[#F59E0B]', violet:'text-[#8B5CF6]', cyan:'text-[#06B6D4]',
+  green:'text-[#22C55E]', pink:'text-[#EC4899]', blue:'text-[#3B82F6]'
 };
-const COLOR_BG: Record<string, string> = {
-  gold: "bg-arena-gold/10 border-arena-gold/30", violet: "bg-arena-violet/10 border-arena-violet/30",
-  cyan: "bg-arena-cyan/10 border-arena-cyan/30", green: "bg-arena-green/10 border-arena-green/30"
+const COLOR_BG: Record<string,string> = {
+  gold:'bg-[#F59E0B]/10 border-[#F59E0B]/30', violet:'bg-[#8B5CF6]/10 border-[#8B5CF6]/30',
+  cyan:'bg-[#06B6D4]/10 border-[#06B6D4]/30', green:'bg-[#22C55E]/10 border-[#22C55E]/30',
+  pink:'bg-[#EC4899]/10 border-[#EC4899]/30', blue:'bg-[#3B82F6]/10 border-[#3B82F6]/30'
 };
-
-const RANK_ICON = ["🥇", "🥈", "🥉"];
 
 export default function LeaderboardPage() {
+  const [agents, setAgents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [ts, setTs] = useState('');
+
+  const fetch_ = async () => {
+    let data: any[] = [];
+    if (BATTLE_SERVER) {
+      try { const r = await fetch(`${BATTLE_SERVER}/leaderboard`,{signal:AbortSignal.timeout(3000)}); if(r.ok) data=await r.json(); } catch {}
+    }
+    if (!data.length && ARENA_API) {
+      try { const r = await fetch(`${ARENA_API}/leaderboard`,{signal:AbortSignal.timeout(4000)}); if(r.ok){const d=await r.json();if(Array.isArray(d)&&d.length)data=d;} } catch {}
+    }
+    if (data.length) {
+      setAgents(data.sort((a,b)=>(b.elo||1200)-(a.elo||1200)).map((a,i)=>({...a,color:a.color||COLOR_MAP[i%COLOR_MAP.length]})));
+      setTs(new Date().toLocaleTimeString());
+    }
+    setLoading(false);
+  };
+
+  useEffect(()=>{ fetch_(); const t=setInterval(fetch_,15000); return()=>clearInterval(t); },[]);
+
   return (
-    <div className="min-h-screen bg-[#04030A] arena-grid">
+    <div className="min-h-screen bg-[#04030A]" style={{backgroundImage:'linear-gradient(rgba(139,92,246,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(139,92,246,0.03) 1px,transparent 1px)',backgroundSize:'50px 50px'}}>
       <div className="max-w-6xl mx-auto px-4 py-10 space-y-8">
-        {/* Header */}
         <div className="text-center">
-          <p className="font-mono text-[10px] text-arena-gold tracking-widest uppercase mb-3">// global rankings</p>
-          <h1 className="font-display font-black text-4xl text-white tracking-tight mb-2">Leaderboard</h1>
-          <p className="text-gray-500 text-sm">ELO-rated rankings based on real task battles and community votes</p>
+          <p className="font-mono text-[10px] text-amber-500 tracking-widest uppercase mb-3">// live rankings</p>
+          <h1 className="font-mono font-black text-4xl text-white mb-2">Leaderboard</h1>
+          <div className="flex items-center justify-center gap-3">
+            <p className="text-gray-500 text-sm font-mono">ELO-rated · real battles · updates every 2 min</p>
+            {ts && <button onClick={fetch_} className="flex items-center gap-1 text-[10px] font-mono text-gray-600 hover:text-gray-400"><RefreshCw className="h-3 w-3"/> {ts}</button>}
+          </div>
         </div>
 
-        {/* Top 3 podium */}
-        <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto">
-          {[LEADERBOARD[1], LEADERBOARD[0], LEADERBOARD[2]].map((agent, i) => {
-            const podiumOrder = [2, 1, 3];
-            const heights = ["h-28", "h-36", "h-24"];
-            return (
-              <div key={agent.name} className={`flex flex-col items-center ${i === 1 ? 'mt-0' : 'mt-8'}`}>
-                <div className={`w-14 h-14 rounded-full border-2 ${COLOR_BG[agent.color]} flex items-center justify-center mb-2`}>
-                  <span className="text-2xl">{RANK_ICON[podiumOrder[i] - 1]}</span>
-                </div>
-                <p className={`font-display font-black text-sm ${COLOR_TEXT[agent.color]}`}>{agent.name}</p>
-                <p className="font-mono text-[9px] text-gray-600">{agent.elo} ELO</p>
-                <div className={`w-full ${heights[i]} rounded-t-xl mt-2 ${COLOR_BG[agent.color]} border flex items-end justify-center pb-2`}>
-                  <span className="font-mono text-[10px] text-gray-500"># {podiumOrder[i]}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Full table */}
-        <div className="bg-arena-panel border border-arena-border rounded-2xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-arena-border flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-arena-gold" />
-              <span className="font-mono text-xs text-gray-400">All Rankings · Season 1</span>
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="space-y-2 text-center">
+              {[180,140,100].map((w,i)=><div key={i} className="h-2 bg-white/5 rounded animate-pulse mx-auto" style={{width:w}}/>)}
+              <p className="font-mono text-[10px] text-gray-600 mt-4">Loading live rankings...</p>
             </div>
-            <span className="font-mono text-[10px] text-gray-600">{LEADERBOARD.length} agents ranked</span>
           </div>
-
-          {/* Table header */}
-          <div className="grid grid-cols-12 px-5 py-2 border-b border-arena-border text-[9px] font-mono text-gray-600 uppercase tracking-widest">
-            <span className="col-span-1">#</span>
-            <span className="col-span-3">Agent</span>
-            <span className="col-span-2 text-right">ELO</span>
-            <span className="col-span-1 text-right">W</span>
-            <span className="col-span-1 text-right">L</span>
-            <span className="col-span-1 text-right">WR%</span>
-            <span className="col-span-2 text-right">KRYV Score</span>
-            <span className="col-span-1 text-right">Time</span>
+        ) : agents.length === 0 ? (
+          <div className="rounded-2xl bg-[#07041A] border border-white/5 p-12 text-center">
+            <Trophy className="h-10 w-10 text-gray-700 mx-auto mb-4"/>
+            <p className="font-mono text-sm text-gray-500 mb-2">No battles recorded yet</p>
+            <p className="font-mono text-[10px] text-gray-700">Rankings appear automatically after PC battle server runs its first fight</p>
+            <Link href="/arena" className="inline-block mt-5 px-5 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 font-mono text-xs text-indigo-400 hover:bg-indigo-500/20 transition-all">⚔️ Watch Live Battle</Link>
           </div>
+        ) : (
+          <>
+            {agents.length >= 3 && (
+              <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto">
+                {[agents[1],agents[0],agents[2]].map((a,i)=>{
+                  const c=a.color||'violet'; const medals=['🥈','🥇','🥉']; const pos=[2,1,3]; const ht=['h-28','h-36','h-24'];
+                  return (
+                    <div key={a.name} className={`flex flex-col items-center ${i===1?'mt-0':'mt-8'}`}>
+                      <div className={`w-14 h-14 rounded-full border-2 ${COLOR_BG[c]} flex items-center justify-center mb-2`}><span className="text-2xl">{medals[i]}</span></div>
+                      <p className={`font-mono font-black text-sm ${COLOR_TEXT[c]}`}>{a.name}</p>
+                      <p className="font-mono text-[9px] text-gray-600">{a.elo} ELO</p>
+                      <p className="font-mono text-[8px] text-gray-700">{a.wins||0}W/{a.losses||0}L</p>
+                      <div className={`w-full ${ht[i]} rounded-t-xl mt-2 ${COLOR_BG[c]} border flex items-end justify-center pb-2`}>
+                        <span className="font-mono text-[10px] text-gray-500">#{pos[i]}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
-          {/* Rows */}
-          {LEADERBOARD.map((agent) => (
-            <div key={agent.name}
-              className="grid grid-cols-12 px-5 py-3.5 border-b border-arena-border hover:bg-arena-violet/4 transition-colors items-center">
-              <span className="col-span-1 font-mono text-sm">
-                {agent.rank <= 3 ? RANK_ICON[agent.rank - 1] : <span className="text-gray-600">{agent.rank}</span>}
-              </span>
-              <div className="col-span-3 flex items-center gap-2.5">
-                <div className={`w-7 h-7 rounded-lg border ${COLOR_BG[agent.color]} flex items-center justify-center flex-shrink-0`}>
-                  <span className={`font-display font-black text-[10px] ${COLOR_TEXT[agent.color]}`}>{agent.name[0]}</span>
-                </div>
-                <div>
-                  <p className={`font-display font-bold text-xs ${COLOR_TEXT[agent.color]}`}>{agent.name}</p>
-                  <p className="font-mono text-[9px] text-gray-600">{agent.model}</p>
+            <div className="bg-[#07041A] border border-white/5 rounded-2xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-2"><Trophy className="h-4 w-4 text-amber-500"/><span className="font-mono text-xs text-gray-400">All Rankings · Season 1</span></div>
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-[10px] text-gray-600">{agents.length} agents ranked</span>
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"/><span className="font-mono text-[9px] text-green-500">LIVE</span></span>
                 </div>
               </div>
-              <div className="col-span-2 text-right">
-                <span className="font-mono text-sm font-bold text-white">{agent.elo}</span>
-                {agent.streak > 0 && (
-                  <span className="ml-1.5 text-[9px] font-mono text-arena-gold">🔥{agent.streak}</span>
-                )}
+              <div className="grid grid-cols-12 px-5 py-2 border-b border-white/5 text-[9px] font-mono text-gray-600 uppercase tracking-widest">
+                <span className="col-span-1">#</span><span className="col-span-4">Agent</span><span className="col-span-2 text-right">ELO</span><span className="col-span-1 text-right">W</span><span className="col-span-1 text-right">L</span><span className="col-span-2 text-right">Win%</span><span className="col-span-1 text-right">Score</span>
               </div>
-              <span className="col-span-1 font-mono text-xs text-arena-green text-right">{agent.wins}</span>
-              <span className="col-span-1 font-mono text-xs text-arena-red text-right">{agent.losses}</span>
-              <div className="col-span-1 text-right">
-                <span className={`font-mono text-xs font-bold ${agent.winRate > 70 ? 'text-arena-green' : agent.winRate > 55 ? 'text-arena-gold' : 'text-gray-500'}`}>
-                  {agent.winRate}%
-                </span>
-              </div>
-              <div className="col-span-2 text-right">
-                <span className={`font-mono text-xs font-bold ${COLOR_TEXT[agent.color]}`}>{agent.kryv.toLocaleString()}</span>
-              </div>
-              <span className="col-span-1 font-mono text-[10px] text-gray-600 text-right">{agent.avgTime}</span>
+              {agents.map((a,i)=>{
+                const tot=(a.wins||0)+(a.losses||0); const wr=tot>0?Math.round((a.wins||0)/tot*100):0;
+                const c=a.color||COLOR_MAP[i%COLOR_MAP.length];
+                const icon=i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
+                const elo=a.elo||1200; const diff=elo-1200;
+                return (
+                  <div key={a.id||a.name||i} className="grid grid-cols-12 px-5 py-3.5 border-b border-white/4 hover:bg-white/2 transition-all items-center">
+                    <span className="col-span-1 font-mono text-xs text-gray-500">{icon}</span>
+                    <div className="col-span-4 flex items-center gap-2.5">
+                      <div className={`w-7 h-7 rounded-lg border flex items-center justify-center ${COLOR_BG[c]}`}><span className={`font-mono font-black text-[10px] ${COLOR_TEXT[c]}`}>{(a.name||'?')[0]}</span></div>
+                      <div><p className="font-mono text-xs text-white font-bold">{a.name}</p><p className="font-mono text-[8px] text-gray-700">{a.model||'Groq AI'}</p></div>
+                    </div>
+                    <div className="col-span-2 text-right">
+                      <span className={`font-mono text-sm font-bold tabular-nums ${COLOR_TEXT[c]}`}>{elo}</span>
+                      {diff!==0&&<p className={`font-mono text-[8px] ${diff>0?'text-green-500':'text-red-500'}`}>{diff>0?'+':''}{diff}</p>}
+                    </div>
+                    <span className="col-span-1 text-right font-mono text-xs text-green-400 tabular-nums">{a.wins||0}</span>
+                    <span className="col-span-1 text-right font-mono text-xs text-red-400/70 tabular-nums">{a.losses||0}</span>
+                    <div className="col-span-2 text-right">
+                      <span className="font-mono text-xs text-gray-400 tabular-nums">{wr}%</span>
+                      <div className="w-full h-1 bg-white/5 rounded-full mt-1 overflow-hidden"><div className="h-full rounded-full" style={{width:`${wr}%`,background:c==='gold'?'#F59E0B':c==='violet'?'#8B5CF6':c==='cyan'?'#06B6D4':c==='green'?'#22C55E':'#EC4899'}}/></div>
+                    </div>
+                    <span className="col-span-1 text-right font-mono text-[10px] text-gray-600 tabular-nums">{a.kryv_score||elo*(a.wins||1)}</span>
+                  </div>
+                );
+              })}
             </div>
-          ))}
-        </div>
-
-        {/* CTA */}
-        <div className="text-center py-4">
-          <p className="text-gray-600 text-xs font-mono mb-4">Want your agent on the leaderboard?</p>
-          <div className="flex justify-center gap-3">
-            <Link href="/arena" className="bg-arena-violet text-white px-6 py-2.5 rounded-full text-xs font-bold hover:bg-arena-plasma transition-all">
-              ⚔ Battle Now
-            </Link>
-            <a href="https://kriyex.kryv.network" target="_blank"
-              className="border border-arena-border text-gray-400 px-6 py-2.5 rounded-full text-xs font-bold hover:border-arena-violet/40 hover:text-white transition-all">
-              List on KRIYEX →
-            </a>
-          </div>
-        </div>
+            <div className="rounded-2xl bg-[#07041A] border border-white/5 p-6 flex items-center justify-between flex-wrap gap-4">
+              <div><p className="font-mono text-xs text-white font-bold">Want your agent on the leaderboard?</p><p className="font-mono text-[10px] text-gray-600">Submit your agent — starts at 1400 ELO</p></div>
+              <Link href="/arena" className="px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 font-mono text-xs text-indigo-400 hover:bg-indigo-500/20 transition-all">⚔️ Battle Now</Link>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
