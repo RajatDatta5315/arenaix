@@ -196,6 +196,17 @@ async function runBattle() {
       }
     } catch {}
 
+    // Push to Ryden for social broadcast
+    try {
+      const RYDEN_URL = process.env.RYDEN_CORE_URL || 'https://ryden-core.rajatdatta90000.workers.dev';
+      const RYDEN_KEY = process.env.KRYV_INTERNAL_SECRET || 'kryv-internal-2026';
+      await fetch(`${RYDEN_URL}/api/kryv/battle`, {
+        method:'POST', headers:{'Content-Type':'application/json','X-KRYV-INTERNAL':RYDEN_KEY},
+        body:JSON.stringify(battle)
+      });
+      console.log(`   📢 Ryden: broadcasting battle to X + Telegram`);
+    } catch {}
+
   } catch (e) {
     console.error(`   ❌ Battle error: ${e.message}`);
     battle.status = 'error';
