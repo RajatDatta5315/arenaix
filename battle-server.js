@@ -184,6 +184,21 @@ async function runBattle() {
       if (r.ok) console.log(`   ✅ Pushed to Worker`);
     } catch (e) { console.log(`   ⚠️  Worker push failed: ${e.message}`); }
 
+    // Notify Ryden — posts battle result to X + KRYV feed
+    if (RYDEN_URL && RYDEN_KEY) {
+      try {
+        await fetch(`${RYDEN_URL}/api/v1/kryv/battle`, {
+          method:'POST', headers:{'Content-Type':'application/json','X-RYDEN-APP-KEY':RYDEN_KEY},
+          body:JSON.stringify({
+            winner_name: battle.winner==='a'?battle.agent_a_name:battle.winner==='b'?battle.agent_b_name:'',
+            loser_name: battle.winner==='a'?battle.agent_b_name:battle.winner==='b'?battle.agent_a_name:'',
+            task_cat: battle.task_cat, elo_change:16, draw: battle.winner==='draw'
+          })
+        });
+        console.log(`   📡 Ryden notified — posting to X`);
+      } catch {}
+    }
+
     // Push price impact to KRYVX
     try {
       const winnerId = winner==='a'?agentA.id:winner==='b'?agentB.id:null;
